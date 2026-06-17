@@ -1,0 +1,74 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model NewsSource {
+  id        String      @id @default(uuid())
+  name      String
+  type      String      // RSS, GOOGLE_SEARCH, WEB_SCRAPE, SOCIAL_SEARCH
+  url       String?
+  query     String?
+  isActive  Boolean     @default(true)
+  autoPost  Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  drafts    NewsDraft[]
+}
+
+model WritingPersona {
+  id           String      @id @default(uuid())
+  name         String
+  tone         String
+  instructions String      @db.Text
+  isDefault    Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  drafts       NewsDraft[]
+}
+
+model NewsDraft {
+  id             String          @id @default(uuid())
+  title          String
+  originalTitle  String
+  originalUrl    String?
+  originalSource String?
+  content        String          @db.Text
+  imageUrl       String?         @db.Text
+  imagePrompt    String?         @db.Text
+  status         String          @default("DRAFT") // DRAFT, APPROVED, POSTED, FAILED
+  sourceId       String?
+  source         NewsSource?     @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  personaId      String?
+  persona        WritingPersona? @relation(fields: [personaId], references: [id], onDelete: SetNull)
+  scheduledAt    DateTime?
+  postedAt       DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  logs           PostLog[]
+}
+
+model SocialAccount {
+  id        String   @id @default(uuid())
+  platform  String   // FACEBOOK, TWITTER, INSTAGRAM, TIKTOK, WEBHOOK
+  name      String
+  config    String   @db.Text // JSON stringified credentials
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PostLog {
+  id             String    @id @default(uuid())
+  draftId        String
+  draft          NewsDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  platform       String
+  status         String    // SUCCESS, FAILED
+  externalPostId String?
+  errorMessage   String?
+  postedAt       DateTime  @default(now())
+}
