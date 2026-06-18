@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local assets and mock db
+/public/generated-images/
+/mock-db.json
