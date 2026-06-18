@@ -87,12 +87,70 @@ export async function generateImage(prompt: string, draftId: string): Promise<st
   const key = await getGeminiApiKey();
   const isMock = process.env.APP_MODE === 'mock' || !key || key === 'YOUR_GEMINI_API_KEY_HERE';
 
+  const categories = {
+    code: [
+      'https://images.unsplash.com/photo-1607799279861-4dd421887fb3',
+      'https://images.unsplash.com/photo-1555066931-4365d14bab8c',
+      'https://images.unsplash.com/photo-1542831371-29b0f74f9713',
+      'https://images.unsplash.com/photo-1517694712202-14dd9538aa97'
+    ],
+    security: [
+      'https://images.unsplash.com/photo-1563986768609-322da13575f3',
+      'https://images.unsplash.com/photo-1614064641938-3bbee52942c7',
+      'https://images.unsplash.com/photo-1593508512255-86ab42a8e620',
+      'https://images.unsplash.com/photo-1601597111158-2fceff270190'
+    ],
+    network: [
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa',
+      'https://images.unsplash.com/photo-1558494949-ef010cbdcc31',
+      'https://images.unsplash.com/photo-1544197150-b99a580bb7a8',
+      'https://images.unsplash.com/photo-1597852074816-d933c7d2b988'
+    ],
+    chip: [
+      'https://images.unsplash.com/photo-1518770660439-4636190af475',
+      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5',
+      'https://images.unsplash.com/photo-1531297484001-80022131f5a1',
+      'https://images.unsplash.com/photo-1558494949-ef010cbdcc31'
+    ],
+    business: [
+      'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab',
+      'https://images.unsplash.com/photo-1497366216548-37526070297c',
+      'https://images.unsplash.com/photo-1504384308090-c894fdcc538d',
+      'https://images.unsplash.com/photo-1522071820081-009f0129c71c'
+    ],
+    generic: [
+      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe',
+      'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b',
+      'https://images.unsplash.com/photo-1547082299-de196ea013d6',
+      'https://images.unsplash.com/photo-1535378917042-10a22c95931a'
+    ]
+  };
+
+  const getUnsplashPhoto = (searchPrompt: string): string => {
+    const lowerPrompt = searchPrompt.toLowerCase();
+    let pool = categories.generic;
+
+    if (lowerPrompt.includes('code') || lowerPrompt.includes('programming') || lowerPrompt.includes('software') || lowerPrompt.includes('developer')) {
+      pool = categories.code;
+    } else if (lowerPrompt.includes('security') || lowerPrompt.includes('cyber') || lowerPrompt.includes('hacker') || lowerPrompt.includes('lock')) {
+      pool = categories.security;
+    } else if (lowerPrompt.includes('network') || lowerPrompt.includes('cloud') || lowerPrompt.includes('server') || lowerPrompt.includes('data center')) {
+      pool = categories.network;
+    } else if (lowerPrompt.includes('chip') || lowerPrompt.includes('processor') || lowerPrompt.includes('semiconductor') || lowerPrompt.includes('circuit')) {
+      pool = categories.chip;
+    } else if (lowerPrompt.includes('business') || lowerPrompt.includes('meeting') || lowerPrompt.includes('office') || lowerPrompt.includes('corp')) {
+      pool = categories.business;
+    }
+
+    const randomUrl = pool[Math.floor(Math.random() * pool.length)];
+    return `${randomUrl}?w=800&auto=format&fit=crop&q=60&sig=${Math.random().toString(36).substring(7)}`;
+  };
+
   if (isMock) {
-    return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=60';
+    return getUnsplashPhoto(prompt);
   }
 
   const ai = new GoogleGenAI({ apiKey: key });
-  let lastError: any = null;
 
   // 1. Try Imagen 3 first
   try {
@@ -112,7 +170,6 @@ export async function generateImage(prompt: string, draftId: string): Promise<st
     }
   } catch (err: any) {
     console.warn('Imagen 3 failed, trying Gemini Flash Image...', err);
-    lastError = err;
   }
 
   // 2. Try Gemini 2.5 Flash Image fallback
@@ -134,33 +191,7 @@ export async function generateImage(prompt: string, draftId: string): Promise<st
     throw new Error('No image returned from Gemini Flash Image');
   } catch (err: any) {
     console.error('Gemini Flash Image also failed, using Unsplash fallback:', err);
-    
-    // Curated high-quality tech/business stock photos
-    const fallbackUrls = [
-      'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80', // Tech Circuit board
-      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80', // Matrix/Binary code
-      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80', // Network sphere
-      'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&auto=format&fit=crop&q=80', // Cybersecurity/Lock
-      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80', // Business tech
-      'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=800&auto=format&fit=crop&q=80'  // Generic clean tech
-    ];
-    
-    const lowerPrompt = prompt.toLowerCase();
-    let selectedUrl = fallbackUrls[5]; // default generic tech
-    
-    if (lowerPrompt.includes('code') || lowerPrompt.includes('programming') || lowerPrompt.includes('software') || lowerPrompt.includes('developer')) {
-      selectedUrl = fallbackUrls[1];
-    } else if (lowerPrompt.includes('security') || lowerPrompt.includes('cyber') || lowerPrompt.includes('hacker') || lowerPrompt.includes('lock')) {
-      selectedUrl = fallbackUrls[3];
-    } else if (lowerPrompt.includes('network') || lowerPrompt.includes('cloud') || lowerPrompt.includes('server') || lowerPrompt.includes('data center')) {
-      selectedUrl = fallbackUrls[2];
-    } else if (lowerPrompt.includes('chip') || lowerPrompt.includes('processor') || lowerPrompt.includes('semiconductor') || lowerPrompt.includes('circuit')) {
-      selectedUrl = fallbackUrls[0];
-    } else if (lowerPrompt.includes('business') || lowerPrompt.includes('meeting') || lowerPrompt.includes('office') || lowerPrompt.includes('corp')) {
-      selectedUrl = fallbackUrls[4];
-    }
-    
-    return selectedUrl;
+    return getUnsplashPhoto(prompt);
   }
 }
 
