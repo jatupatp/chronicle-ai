@@ -133,12 +133,33 @@ export async function generateImage(prompt: string, draftId: string): Promise<st
     }
     throw new Error('No image returned from Gemini Flash Image');
   } catch (err: any) {
-    console.error('Gemini Flash Image also failed:', err);
+    console.error('Gemini Flash Image also failed, using Unsplash fallback:', err);
     
-    // Construct debug message
-    const msg = `Imagen 3 error: ${lastError?.message || String(lastError)} | Gemini 2.5 Image error: ${err?.message || String(err)}`;
-    const cleanedMsg = msg.replace(/[^a-zA-Z0-9\s:().,_\-\[\]|]/g, ' ').substring(0, 160);
+    // Curated high-quality tech/business stock photos
+    const fallbackUrls = [
+      'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80', // Tech Circuit board
+      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80', // Matrix/Binary code
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80', // Network sphere
+      'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&auto=format&fit=crop&q=80', // Cybersecurity/Lock
+      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80', // Business tech
+      'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=800&auto=format&fit=crop&q=80'  // Generic clean tech
+    ];
     
-    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450"><rect width="100%" height="100%" fill="%231a1a1a"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%23e74c3c" font-family="sans-serif" font-weight="bold" font-size="20">Image Generation Failed</text><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-family="sans-serif" font-size="9">${cleanedMsg}</text></svg>`;
+    const lowerPrompt = prompt.toLowerCase();
+    let selectedUrl = fallbackUrls[5]; // default generic tech
+    
+    if (lowerPrompt.includes('code') || lowerPrompt.includes('programming') || lowerPrompt.includes('software') || lowerPrompt.includes('developer')) {
+      selectedUrl = fallbackUrls[1];
+    } else if (lowerPrompt.includes('security') || lowerPrompt.includes('cyber') || lowerPrompt.includes('hacker') || lowerPrompt.includes('lock')) {
+      selectedUrl = fallbackUrls[3];
+    } else if (lowerPrompt.includes('network') || lowerPrompt.includes('cloud') || lowerPrompt.includes('server') || lowerPrompt.includes('data center')) {
+      selectedUrl = fallbackUrls[2];
+    } else if (lowerPrompt.includes('chip') || lowerPrompt.includes('processor') || lowerPrompt.includes('semiconductor') || lowerPrompt.includes('circuit')) {
+      selectedUrl = fallbackUrls[0];
+    } else if (lowerPrompt.includes('business') || lowerPrompt.includes('meeting') || lowerPrompt.includes('office') || lowerPrompt.includes('corp')) {
+      selectedUrl = fallbackUrls[4];
+    }
+    
+    return selectedUrl;
   }
 }

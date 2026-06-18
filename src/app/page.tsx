@@ -19,6 +19,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [crawling, setCrawling] = useState(false);
   const [crawlMessage, setCrawlMessage] = useState('');
+  const [sources, setSources] = useState<any[]>([]);
+  const [selectedSourceId, setSelectedSourceId] = useState('all');
 
   const [personas, setPersonas] = useState<any[]>([]);
   const [urlInput, setUrlInput] = useState('');
@@ -61,6 +63,11 @@ export default function Dashboard() {
         const def = personasData.find((p: any) => p.isDefault) || personasData[0];
         setSelectedPersonaId(def.id);
       }
+
+      // Fetch Sources
+      const sRes = await fetch('/api/sources');
+      const sourcesData = await sRes.json();
+      setSources(sourcesData.filter((s: any) => s.isActive));
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -106,7 +113,7 @@ export default function Dashboard() {
     setCrawling(true);
     setCrawlMessage('กำลังดึงข้อมูลข่าวสารล่าสุด...');
     try {
-      const res = await fetch('/api/cron/fetch-news?manual=true');
+      const res = await fetch(`/api/cron/fetch-news?manual=true&sourceId=${selectedSourceId}`);
       const data = await res.json();
       if (data.success) {
         setCrawlMessage(data.message || 'ดึงข่าวสำเร็จแล้ว!');
@@ -133,11 +140,21 @@ export default function Dashboard() {
           </p>
         </div>
         
-        <div className="mt-4 md:mt-0 flex items-center space-x-3">
+        <div className="mt-4 md:mt-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <select
+            value={selectedSourceId}
+            onChange={(e) => setSelectedSourceId(e.target.value)}
+            className="bg-card border border-border px-3 py-2.5 rounded-lg text-xs focus:outline-none focus:border-stone-500"
+          >
+            <option value="all">ดึงทุกแหล่งข่าว (All Sources)</option>
+            {sources.map((s: any) => (
+              <option key={s.id} value={s.id}>{s.name} ({s.type})</option>
+            ))}
+          </select>
           <button
             onClick={triggerCrawl}
             disabled={crawling}
-            className="flex items-center space-x-2 bg-stone-900 text-stone-100 dark:bg-stone-100 dark:text-stone-900 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-stone-800 dark:hover:bg-stone-200 transition-colors disabled:opacity-50"
+            className="flex items-center justify-center space-x-2 bg-stone-900 text-stone-100 dark:bg-stone-100 dark:text-stone-900 px-4 py-2.5 rounded-lg text-xs font-semibold hover:bg-stone-850 dark:hover:bg-stone-200 transition-colors disabled:opacity-50"
           >
             {crawling ? (
               <RefreshCw className="w-4 h-4 animate-spin" />

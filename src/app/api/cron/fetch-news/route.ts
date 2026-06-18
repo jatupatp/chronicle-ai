@@ -9,10 +9,15 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const manual = searchParams.get('manual') === 'true';
+  const sourceId = searchParams.get('sourceId');
 
   try {
     const sources = await db.getSources();
-    const activeSources = sources.filter(s => s.isActive);
+    let activeSources = sources.filter(s => s.isActive);
+    
+    if (sourceId && sourceId !== 'all') {
+      activeSources = activeSources.filter(s => s.id === sourceId);
+    }
     const personas = await db.getPersonas();
     const defaultPersona = personas.find(p => p.isDefault) || personas[0];
 
