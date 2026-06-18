@@ -91,8 +91,11 @@ export async function generateImage(prompt: string, draftId: string): Promise<st
     return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=60';
   }
 
+  const ai = new GoogleGenAI({ apiKey: key });
+  let lastError: any = null;
+
+  // 1. Try Imagen 3 first
   try {
-    const ai = new GoogleGenAI({ apiKey: key });
     const response = await ai.models.generateImages({
       model: 'imagen-3.0-generate-002',
       prompt: prompt,
@@ -104,29 +107,38 @@ export async function generateImage(prompt: string, draftId: string): Promise<st
     });
 
     const base64Bytes = response.generatedImages?.[0]?.image?.imageBytes;
-    if (!base64Bytes) throw new Error('No image bytes returned from Imagen 3');
-
-    return `data:image/jpeg;base64,${base64Bytes}`;
-  } catch (error: any) {
-    console.error('Error generating image via Imagen:', error);
-    let msg = error?.message || String(error);
-    
-    try {
-      const ai = new GoogleGenAI({ apiKey: key });
-      const list = await ai.models.list();
-      const imageModels = list
-        .filter(m => m.name?.toLowerCase().includes('image') || m.name?.toLowerCase().includes('imagen'))
-        .map(m => m.name?.replace('models/', ''))
-        .join(', ');
-      if (imageModels) {
-        msg += ` | Available: ${imageModels}`;
-      }
-    } catch (listErr: any) {
-      msg += ` | List error: ${listErr?.message || String(listErr)}`;
+    if (base64Bytes) {
+      return `data:image/jpeg;base64,${base64Bytes}`;
     }
+  } catch (err: any) {
+    console.warn('Imagen 3 failed, trying Gemini Flash Image...', err);
+    lastError = err;
+  }
 
-    // Keep clean ASCII characters to prevent XML parsing issues in SVG
-    const cleanedMsg = msg.replace(/[^a-zA-Z0-9\s:().,_\-\[\]|]/g, ' ').substring(0, 150);
-    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450"><rect width="100%" height="100%" fill="%231a1a1a"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%23e74c3c" font-family="sans-serif" font-weight="bold" font-size="20">Image Generation Failed</text><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-family="sans-serif" font-size="10">${cleanedMsg}</text></svg>`;
+  // 2. Try Gemini 2.5 Flash Image fallback
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: prompt,
+      config: {
+        responseModalities: ['TEXT', 'IMAGE'],
+      }
+    });
+
+    const candidate = response.candidates?.[0];
+    const part = candidate?.content?.parts?.find((p: any) => p.inlineData);
+    const base64Bytes = part?.inlineData?.data;
+    if (base64Bytes) {
+      return `data:image/jpeg;base64,${base64Bytes}`;
+    }
+    throw new Error('No image returned from Gemini Flash Image');
+  } catch (err: any) {
+    console.error('Gemini Flash Image also failed:', err);
+    
+    // Construct debug message
+    const msg = `Imagen 3 error: ${lastError?.message || String(lastError)} | Gemini 2.5 Image error: ${err?.message || String(err)}`;
+    const cleanedMsg = msg.replace(/[^a-zA-Z0-9\s:().,_\-\[\]|]/g, ' ').substring(0, 160);
+    
+    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450"><rect width="100%" height="100%" fill="%231a1a1a"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%23e74c3c" font-family="sans-serif" font-weight="bold" font-size="20">Image Generation Failed</text><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-family="sans-serif" font-size="9">${cleanedMsg}</text></svg>`;
   }
 }
