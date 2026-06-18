@@ -37,6 +37,7 @@ export interface NewsDraft {
   imageUrl: string | null;
   imagePrompt: string | null;
   status: string; // DRAFT, APPROVED, POSTED, FAILED
+  curatorReason: string | null;
   sourceId: string | null;
   personaId: string | null;
   scheduledAt: Date | null;
@@ -386,6 +387,7 @@ export const db = {
     sourceId?: string | null;
     personaId?: string | null;
     status?: string;
+    curatorReason?: string | null;
   }): Promise<NewsDraft> {
     if (isMockMode()) {
       const dbData = readMockDB();
@@ -399,6 +401,7 @@ export const db = {
         imageUrl: data.imageUrl || null,
         imagePrompt: data.imagePrompt || null,
         status: data.status || 'DRAFT',
+        curatorReason: data.curatorReason || null,
         sourceId: data.sourceId || null,
         personaId: data.personaId || null,
         scheduledAt: null,

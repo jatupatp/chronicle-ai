@@ -163,3 +163,127 @@ export async function generateImage(prompt: string, draftId: string): Promise<st
     return selectedUrl;
   }
 }
+
+export interface CandidateArticle {
+  title: string;
+  snippet: string;
+  source: string;
+}
+
+export interface CuratedResult {
+  selectedIndices: number[];
+  reasons: Record<number, string>;
+}
+
+/**
+ * Uses Gemini to evaluate a list of news candidate stories and selects the top 3 most interesting.
+ */
+export async function curateNewsArticles(
+  articles: CandidateArticle[]
+): Promise<CuratedResult> {
+  const key = await getGeminiApiKey();
+  const isMock = process.env.APP_MODE === 'mock' || !key || key === 'YOUR_GEMINI_API_KEY_HERE';
+
+  if (isMock || articles.length === 0) {
+    // Return first 3 items with mock reasons
+    const selectedIndices = articles.slice(0, 3).map((_, i) => i);
+    const reasons: Record<number, string> = {};
+    selectedIndices.forEach(idx => {
+      reasons[idx] = `เป็นข่าวที่กำลังได้รับความสนใจอย่างมากในหมวดหมู่ข่าวสารไอทีและนวัตกรรมใหม่ (AI บรรณาธิการจำลอง)`;
+    });
+    return { selectedIndices, reasons };
+  }
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: key });
+    
+    // Format the articles list for the prompt
+    const articlesFormatted = articles.map((art, idx) => {
+      return `[ข่าวที่ ${idx}]
+แหล่งข่าว: ${art.source}
+หัวข้อ: ${art.title}
+เนื้อหาสรุป: ${art.snippet}`;
+    }).join('\n\n');
+
+    const prompt = `คุณคือ "บรรณาธิการบริหารสูงสุด (Editor-in-Chief)" ของสำนักข่าวด้านเทคโนโลยี ธุรกิจ และนวัตกรรมชั้นนำ
+ภารกิจของคุณคือการคัดกรองข่าวดิบและหัวข้อข่าวด้านล่างนี้ทั้งหมด แล้วคัดเลือกข่าวสารที่ "น่าสนใจที่สุด, มีเทรนด์การเข้าชมสูง, และมีผลกระทบต่ออุตสาหกรรมในวงกว้าง" เพียง 3 ข่าวเด่นเท่านั้น (หากจำนวนข่าวน้อยกว่า 3 ข่าว ให้เลือกมาทั้งหมดที่มี)
+
+นี่คือรายการข่าวสารทั้งหมดที่มีให้พิจารณา:
+${articlesFormatted}
+
+กรุณาประเมินและคัดเลือกข่าวที่สมควรนำมาเรียบเรียงเขียนใหม่ และระบุเหตุผลสั้นๆ (ภาษาไทย ไม่เกิน 1-2 ประโยค) ว่าทำไมข่าวนี้ถึงได้รับเลือกและน่าสนใจอย่างไร
+
+ผลลัพธ์ที่ต้องการต้องอยู่ในรูปแบบ JSON ตามโครงสร้างนี้:
+{
+  "selected": [
+    {
+      "index": 0,
+      "reason": "ระบุเหตุผลสั้นๆ ในภาษาไทย เช่น: เป็นเมกะดีลสำคัญที่จะขับเคลื่อนการเติบโตของเทคโนโลยีคลาวด์ในเอเชีย"
+    }
+  ]
+}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            selected: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  index: { type: 'INTEGER' },
+                  reason: { type: 'STRING' }
+                },
+                required: ['index', 'reason']
+              }
+            }
+          },
+          required: ['selected']
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) throw new Error('Empty response from Gemini curator');
+    
+    const parsed = JSON.parse(text);
+    const selectedIndices: number[] = [];
+    const reasons: Record<number, string> = {};
+
+    if (parsed.selected && Array.isArray(parsed.selected)) {
+      parsed.selected.forEach((item: any) => {
+        const idx = Number(item.index);
+        if (!isNaN(idx) && idx >= 0 && idx < articles.length) {
+          selectedIndices.push(idx);
+          reasons[idx] = item.reason;
+        }
+      });
+    }
+
+    // fallback if selection is empty
+    if (selectedIndices.length === 0) {
+      const fallbackIndices = articles.slice(0, 3).map((_, i) => i);
+      const fallbackReasons: Record<number, string> = {};
+      fallbackIndices.forEach(idx => {
+        fallbackReasons[idx] = 'ได้รับเลือกจากการคัดกรองอัตโนมัติ (ข่าวด่วนน่าสนใจ)';
+      });
+      return { selectedIndices: fallbackIndices, reasons: fallbackReasons };
+    }
+
+    return { selectedIndices, reasons };
+  } catch (error) {
+    console.error('Error curating news articles via Gemini:', error);
+    // Fallback: return top 3 items
+    const selectedIndices = articles.slice(0, 3).map((_, i) => i);
+    const reasons: Record<number, string> = {};
+    selectedIndices.forEach(idx => {
+      reasons[idx] = 'ได้รับเลือกจากการคัดกรองอัตโนมัติ (Fallbackเนื่องจากการเรียกวิเคราะห์ขัดข้อง)';
+    });
+    return { selectedIndices, reasons };
+  }
+}

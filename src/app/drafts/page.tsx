@@ -362,6 +362,20 @@ function DraftsRoomContent() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Left Form: Text Inputs */}
               <div className="md:col-span-2 space-y-4">
+                {selectedDraft.curatorReason && (
+                  <div className="bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-900/30 p-4 rounded-xl flex items-start space-x-3 shadow-xs">
+                    <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400 mb-1">
+                        เหตุผลของบรรณาธิการ AI (AI Editorial Reason)
+                      </h4>
+                      <p className="text-xs text-stone-700 dark:text-stone-300 leading-relaxed font-sans font-medium">
+                        {selectedDraft.curatorReason}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">
                     หัวข้อข่าว (Headline)

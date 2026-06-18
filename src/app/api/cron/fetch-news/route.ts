@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import Parser from 'rss-parser';
 import { db } from '@/lib/db';
-import { generateArticle, generateImage } from '@/lib/ai';
+import { generateArticle, generateImage, curateNewsArticles } from '@/lib/ai';
 import { publishDraft } from '@/lib/publisher';
 
 export const dynamic = 'force-dynamic';
@@ -30,114 +30,132 @@ export async function GET(request: Request) {
     const existingDrafts = await db.getDrafts();
     const existingUrls = new Set(existingDrafts.map(d => d.originalUrl).filter(Boolean));
 
-    // Cap the number of items processed per run to prevent API quota exhaustion (e.g., max 2 per run)
-    const maxItemsPerSource = manual ? 3 : 1; 
+    // Step 1: Collect candidates from all active sources
+    const rawCandidates: any[] = [];
+    const maxItemsPerSource = manual ? 4 : 2;
 
     for (const source of activeSources) {
       if (source.type === 'RSS' && source.url) {
         try {
           const feed = await parser.parseURL(source.url);
-          let processedCount = 0;
-
+          let count = 0;
           for (const item of feed.items) {
-            if (processedCount >= maxItemsPerSource) break;
-
+            if (count >= maxItemsPerSource) break;
             const itemUrl = item.link || '';
             if (!itemUrl || existingUrls.has(itemUrl)) continue;
 
-            const originalTitle = item.title || 'ไม่มีหัวข้อข่าว';
-            const originalContent = item.contentSnippet || item.content || '';
-
-            // 1. Generate rewritten article with Gemini
-            const rewritten = await generateArticle(
-              originalTitle,
-              originalContent,
-              defaultPersona.instructions
-            );
-
-            // 2. Save Draft to DB first (status DRAFT or PENDING_IMAGE)
-            const draft = await db.createDraft({
-              title: rewritten.title,
-              originalTitle: originalTitle,
-              originalUrl: itemUrl,
-              originalSource: source.name,
-              content: rewritten.content,
-              imagePrompt: rewritten.imagePrompt,
-              status: 'DRAFT',
+            rawCandidates.push({
+              originalTitle: item.title || 'ไม่มีหัวข้อข่าว',
+              originalContent: item.contentSnippet || item.content || '',
+              itemUrl,
               sourceId: source.id,
-              personaId: defaultPersona.id
+              sourceName: source.name,
+              autoPost: source.autoPost
             });
-
-            // 3. Generate Image using Imagen 3 based on imagePrompt
-            const imageUrl = await generateImage(rewritten.imagePrompt, draft.id);
-            
-            // Update draft with image URL
-            const updatedDraft = await db.updateDraft(draft.id, { imageUrl });
-
-            // 4. If Auto-Post is enabled for this source, post immediately!
-            if (source.autoPost) {
-              const activeSocials = await db.getSocialAccounts();
-              const targetPlatformIds = activeSocials.filter(sa => sa.isActive).map(sa => sa.id);
-              if (targetPlatformIds.length > 0) {
-                try {
-                  await publishDraft(draft.id, targetPlatformIds);
-                } catch (publishErr) {
-                  console.error(`Auto-posting failed for draft ${draft.id}:`, publishErr);
-                }
-              }
-            }
-
-            createdDrafts.push({
-              id: updatedDraft.id,
-              title: updatedDraft.title,
-              source: source.name,
-              autoPosted: source.autoPost
-            });
-
-            processedCount++;
+            count++;
           }
         } catch (feedErr) {
           console.error(`Failed parsing feed ${source.name}:`, feedErr);
         }
       } else {
-        // Other types (Google Search, Web scrapers, Social search)
-        // For Mock / simpler implementation, we can simulate fetching a custom keyword query news
-        // if user triggers manually.
+        // Other types
         if (manual && source.query) {
           const mockTitle = `ข่าวเด่นด่วนเกี่ยวกับ: ${source.query}`;
           const mockContent = `ความคืบหน้าล่าสุดเกี่ยวกับการค้นหาข้อมูลของ "${source.query}" ในอุตสาหกรรมเทคโนโลยี มีรายงานความตื่นตัวและการอภิปรายในวงกว้างในสัปดาห์นี้`;
           
           if (!existingDrafts.some(d => d.originalTitle === mockTitle)) {
-            const rewritten = await generateArticle(mockTitle, mockContent, defaultPersona.instructions);
-            const draft = await db.createDraft({
-              title: rewritten.title,
+            rawCandidates.push({
               originalTitle: mockTitle,
-              originalUrl: `https://mocknews.com/search?q=${encodeURIComponent(source.query)}`,
-              originalSource: source.name,
-              content: rewritten.content,
-              imagePrompt: rewritten.imagePrompt,
-              status: 'DRAFT',
+              originalContent: mockContent,
+              itemUrl: `https://mocknews.com/search?q=${encodeURIComponent(source.query)}`,
               sourceId: source.id,
-              personaId: defaultPersona.id
-            });
-
-            const imageUrl = await generateImage(rewritten.imagePrompt, draft.id);
-            const updatedDraft = await db.updateDraft(draft.id, { imageUrl });
-
-            createdDrafts.push({
-              id: updatedDraft.id,
-              title: updatedDraft.title,
-              source: source.name,
-              autoPosted: false
+              sourceName: source.name,
+              autoPost: false
             });
           }
         }
       }
     }
 
+    if (rawCandidates.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'ไม่มีข่าวใหม่เพิ่มเติมจากแหล่งข่าวที่กำหนดในขณะนี้',
+        drafts: []
+      });
+    }
+
+    // Step 2: Curation Stage
+    const curateInput = rawCandidates.map(c => ({
+      title: c.originalTitle,
+      snippet: c.originalContent.substring(0, 300),
+      source: c.sourceName
+    }));
+
+    const { selectedIndices, reasons } = await curateNewsArticles(curateInput);
+
+    // Step 3: Rewrite and create drafts only for selected articles
+    for (const idx of selectedIndices) {
+      if (idx < 0 || idx >= rawCandidates.length) continue;
+      const candidate = rawCandidates[idx];
+      const reason = reasons[idx] || 'ได้รับเลือกจากการวิเคราะห์ของกองบรรณาธิการ AI';
+
+      try {
+        // 1. Generate rewritten article with Gemini
+        const rewritten = await generateArticle(
+          candidate.originalTitle,
+          candidate.originalContent,
+          defaultPersona.instructions
+        );
+
+        // 2. Save Draft to DB
+        const draft = await db.createDraft({
+          title: rewritten.title,
+          originalTitle: candidate.originalTitle,
+          originalUrl: candidate.itemUrl,
+          originalSource: candidate.sourceName,
+          content: rewritten.content,
+          imagePrompt: rewritten.imagePrompt,
+          status: 'DRAFT',
+          sourceId: candidate.sourceId,
+          personaId: defaultPersona.id,
+          curatorReason: reason
+        });
+
+        // 3. Generate Image
+        const imageUrl = await generateImage(rewritten.imagePrompt, draft.id);
+        
+        // Update draft with image URL
+        const updatedDraft = await db.updateDraft(draft.id, { imageUrl });
+
+        // 4. Auto-post if enabled
+        if (candidate.autoPost) {
+          const activeSocials = await db.getSocialAccounts();
+          const targetPlatformIds = activeSocials.filter(sa => sa.isActive).map(sa => sa.id);
+          if (targetPlatformIds.length > 0) {
+            try {
+              await publishDraft(draft.id, targetPlatformIds);
+            } catch (publishErr) {
+              console.error(`Auto-posting failed for draft ${draft.id}:`, publishErr);
+            }
+          }
+        }
+
+        createdDrafts.push({
+          id: updatedDraft.id,
+          title: updatedDraft.title,
+          source: candidate.sourceName,
+          autoPosted: candidate.autoPost,
+          curatorReason: reason
+        });
+      } catch (genErr) {
+        console.error(`Failed generating draft for selected candidate ${candidate.originalTitle}:`, genErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: `ดึงข้อมูลสำเร็จ ร่างข่าวใหม่ทั้งหมด ${createdDrafts.length} ข่าว`,
+      message: `ดึงข่าวและผ่านคัดเลือกโดย AI สำเร็จทั้งหมด ${createdDrafts.length} ข่าว (จากข่าวดิบทั้งหมด ${rawCandidates.length} ข่าว)`,
       drafts: createdDrafts
     });
   } catch (error: any) {

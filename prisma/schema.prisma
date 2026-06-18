@@ -41,6 +41,7 @@ model NewsDraft {
   imageUrl       String?         @db.Text
   imagePrompt    String?         @db.Text
   status         String          @default("DRAFT") // DRAFT, APPROVED, POSTED, FAILED
+  curatorReason  String?         @db.Text
   sourceId       String?
   source         NewsSource?     @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   personaId      String?
