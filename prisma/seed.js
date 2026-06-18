@@ -57,6 +57,104 @@ async function main() {
       url: 'https://www.thairath.co.th/rss/tech',
       isActive: true,
       autoPost: false
+    },
+    {
+      name: 'Blognone (ข่าวไอทีและเทคโนโลยี)',
+      type: 'RSS',
+      url: 'https://www.blognone.com/atom.xml',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'Brand Inside (ธุรกิจและการตลาด)',
+      type: 'RSS',
+      url: 'https://brandinside.asia/feed',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'Thairath Money (การเงินและธุรกิจ)',
+      type: 'RSS',
+      url: 'https://www.thairath.co.th/rss/money',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'Sanook News (ข่าวเด่นประเด็นร้อน)',
+      type: 'RSS',
+      url: 'https://rssfeeds.sanook.com/rss/feeds/sanook/news.index.xml',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'Specphone (มือถือและแกดเจ็ต)',
+      type: 'RSS',
+      url: 'https://specphone.com/feed',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'TechOffside (ข่าวไอทีไลฟ์สไตล์)',
+      type: 'RSS',
+      url: 'https://www.techoffside.com/feed',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'PPTV HD 36 (ข่าวทั่วไปและต่างประเทศ)',
+      type: 'RSS',
+      url: 'https://www.pptvhd36.com/rss/news.xml',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'TechCrunch (ข่าวไอทีระดับโลก)',
+      type: 'RSS',
+      url: 'https://techcrunch.com/feed/',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'The Verge (เทคโนโลยีและวัฒนธรรม)',
+      type: 'RSS',
+      url: 'https://www.theverge.com/rss/index.xml',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'Wired (วิทยาศาสตร์และเทคโนโลยี)',
+      type: 'RSS',
+      url: 'https://www.wired.com/feed/rss',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'BBC Technology (ไอทีและนวัตกรรมโลก)',
+      type: 'RSS',
+      url: 'http://feeds.bbci.co.uk/news/technology/rss.xml',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'Engadget (รีวิวแกดเจ็ตระดับโลก)',
+      type: 'RSS',
+      url: 'https://www.engadget.com/rss.xml',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'VentureBeat (เอไอและเทคโนโลยีองค์กร)',
+      type: 'RSS',
+      url: 'https://venturebeat.com/feed/',
+      isActive: true,
+      autoPost: false
+    },
+    {
+      name: 'CNBC Technology (ธุรกิจเทคโนโลยีโลก)',
+      type: 'RSS',
+      url: 'https://search.cnbc.com/rs/search/combinedseo/search?target=partner&partnerId=20000&keywords=technology&sort=date&output=rss',
+      isActive: true,
+      autoPost: false
     }
   ];
 
