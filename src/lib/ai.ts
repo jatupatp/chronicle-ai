@@ -107,9 +107,11 @@ export async function generateImage(prompt: string, draftId: string): Promise<st
     if (!base64Bytes) throw new Error('No image bytes returned from Imagen 3');
 
     return `data:image/jpeg;base64,${base64Bytes}`;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating image via Imagen:', error);
-    // Return a fallback SVG placeholder
-    return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450"><rect width="100%" height="100%" fill="%231a1a1a"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23666" font-family="sans-serif" font-size="20">Image Generation Failed</text></svg>';
+    const msg = error?.message || String(error);
+    // Keep clean ASCII characters to prevent XML parsing issues in SVG
+    const cleanedMsg = msg.replace(/[^a-zA-Z0-9\s:().,_\-\[\]]/g, ' ').substring(0, 80);
+    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450"><rect width="100%" height="100%" fill="%231a1a1a"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%23e74c3c" font-family="sans-serif" font-weight="bold" font-size="20">Image Generation Failed</text><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-family="sans-serif" font-size="14">${cleanedMsg}</text></svg>`;
   }
 }
