@@ -84,31 +84,11 @@ export async function generateArticle(
  * Returns the public image path (e.g. "/generated-images/[draftId].jpg").
  */
 export async function generateImage(prompt: string, draftId: string): Promise<string> {
-  const publicDir = path.join(process.cwd(), 'public');
-  const imagesDir = path.join(publicDir, 'generated-images');
-
-  // Ensure directories exist
-  if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir);
-  if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir);
-
-  const filename = `${draftId}.jpg`;
-  const relativePath = `/generated-images/${filename}`;
-  const absolutePath = path.join(imagesDir, filename);
-
   const key = await getGeminiApiKey();
   const isMock = process.env.APP_MODE === 'mock' || !key || key === 'YOUR_GEMINI_API_KEY_HERE';
 
   if (isMock) {
-    try {
-      const response = await fetch('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=60');
-      const buffer = await response.arrayBuffer();
-      fs.writeFileSync(absolutePath, Buffer.from(buffer));
-      return relativePath;
-    } catch (e) {
-      const tinyJpgBase64 = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAAZABkBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
-      fs.writeFileSync(absolutePath, Buffer.from(tinyJpgBase64, 'base64'));
-      return relativePath;
-    }
+    return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=60';
   }
 
   try {
@@ -126,12 +106,10 @@ export async function generateImage(prompt: string, draftId: string): Promise<st
     const base64Bytes = response.generatedImages?.[0]?.image?.imageBytes;
     if (!base64Bytes) throw new Error('No image bytes returned from Imagen 3');
 
-    fs.writeFileSync(absolutePath, Buffer.from(base64Bytes, 'base64'));
-    return relativePath;
+    return `data:image/jpeg;base64,${base64Bytes}`;
   } catch (error) {
     console.error('Error generating image via Imagen:', error);
-    const tinyJpgBase64 = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAAZABkBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
-    fs.writeFileSync(absolutePath, Buffer.from(tinyJpgBase64, 'base64'));
-    return relativePath;
+    // Return a fallback SVG placeholder
+    return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450"><rect width="100%" height="100%" fill="%231a1a1a"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23666" font-family="sans-serif" font-size="20">Image Generation Failed</text></svg>';
   }
 }
