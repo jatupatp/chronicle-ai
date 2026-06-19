@@ -5,7 +5,7 @@ function isMockPublish(): boolean {
   return process.env.APP_MODE === 'mock';
 }
 
-function getAbsoluteOgImageUrl(draft: NewsDraft): string {
+async function getAbsoluteOgImageUrl(draft: NewsDraft): Promise<string> {
   if (!draft.imageUrl) return '';
   if (draft.imageUrl.startsWith('data:')) return draft.imageUrl;
 
@@ -24,9 +24,23 @@ function getAbsoluteOgImageUrl(draft: NewsDraft): string {
     targetImageUrl = `${baseUrl}${targetImageUrl}`;
   }
 
+  // Fetch dynamic branding name
+  let logoText = 'CHRONICLE AI';
+  try {
+    const accounts = await db.getSocialAccounts();
+    const branding = accounts.find(a => a.platform === 'BRANDING');
+    if (branding) {
+      const conf = JSON.parse(branding.config);
+      if (conf.logoText) logoText = conf.logoText;
+    }
+  } catch (e) {
+    console.error('Error fetching branding name for OG image:', e);
+  }
+
   const titleParam = encodeURIComponent(draft.title);
   const imageParam = encodeURIComponent(targetImageUrl);
-  return `${baseUrl}/api/og?title=${titleParam}&imageUrl=${imageParam}`;
+  const logoParam = encodeURIComponent(logoText);
+  return `${baseUrl}/api/og?title=${titleParam}&imageUrl=${imageParam}&logoText=${logoParam}`;
 }
 
 /**
@@ -50,7 +64,7 @@ async function publishToFacebook(draft: NewsDraft, configStr: string): Promise<s
       // Need absolute URL for Facebook to download the image. 
       // Note: If running locally, Facebook API cannot access localhost image.
       // So we fallback to a public mock image or check if URL is external.
-      const ogUrl = getAbsoluteOgImageUrl(draft);
+      const ogUrl = await getAbsoluteOgImageUrl(draft);
       const isLocalImage = ogUrl.includes('localhost') || ogUrl.includes('127.0.0.1');
       const photoUrl = isLocalImage 
         ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800' 
@@ -137,7 +151,7 @@ async function publishToInstagram(draft: NewsDraft, configStr: string): Promise<
     if (!draft.imageUrl) throw new Error('Instagram posts require an image URL');
 
     const caption = `${draft.title}\n\n${draft.content}\n\n#ChronicleAI`;
-    const ogUrl = getAbsoluteOgImageUrl(draft);
+    const ogUrl = await getAbsoluteOgImageUrl(draft);
     const isLocalImage = ogUrl.includes('localhost') || ogUrl.includes('127.0.0.1');
     const photoUrl = isLocalImage 
       ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800' 
@@ -202,7 +216,7 @@ async function publishToWebhook(draft: NewsDraft, configStr: string): Promise<st
         id: draft.id,
         title: draft.title,
         content: draft.content,
-        imageUrl: draft.imageUrl ? getAbsoluteOgImageUrl(draft) : null,
+        imageUrl: draft.imageUrl ? await getAbsoluteOgImageUrl(draft) : null,
         originalUrl: draft.originalUrl,
         originalSource: draft.originalSource
       }

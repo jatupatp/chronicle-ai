@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const title = searchParams.get('title') || '';
     const imageUrl = searchParams.get('imageUrl') || '';
+    const logoText = searchParams.get('logoText') || 'CHRONICLE AI';
 
     // Load Thai font dynamically
     const fontData = await getFontData();
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
                 letterSpacing: '1px',
               }}
             >
-              CHRONICLE AI
+              {logoText}
             </span>
           </div>
 

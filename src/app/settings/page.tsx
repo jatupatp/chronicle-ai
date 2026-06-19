@@ -766,6 +766,19 @@ function SocialConfigForm({ account, onSave, saveLoading }: SocialConfigFormProp
         </div>
       )}
 
+      {account.platform === 'BRANDING' && (
+        <div>
+          <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">ชื่อแบรนด์ / ลายน้ำรูปภาพพาดหัวข่าว (Brand Watermark Logo Text)</label>
+          <input
+            type="text"
+            value={fields.logoText || ''}
+            onChange={(e) => handleChange('logoText', e.target.value)}
+            className="w-full bg-background border border-border p-2 rounded text-xs focus:outline-none"
+            placeholder="เช่น CHRONICLE AI"
+          />
+        </div>
+      )}
+
       {account.platform === 'WEBHOOK' && (
         <div>
           <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Make.com/Zapier Webhook URL</label>

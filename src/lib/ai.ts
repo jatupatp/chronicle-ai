@@ -42,13 +42,18 @@ export async function generateArticle(
 หัวข้อข่าว: ${originalTitle}
 เนื้อหาข่าว: ${originalContent}
 
-กรุณาเขียนบทความใหม่เป็นภาษาไทยที่มีความดึงดูด น่าอ่าน และสร้างสรรค์ตามบุคลิกที่ระบุ (หากแหล่งข่าวต้นฉบับเป็นภาษาอังกฤษหรือภาษาอื่นใด ให้แปลและเรียบเรียงเป็นภาษาไทยโดยสมบูรณ์)
-นอกจากนี้ ให้เขียน Prompt ภาษาอังกฤษสำหรับส่งไปเจเนอเรตรูปภาพประกอบข่าวชิ้นนี้ผ่าน AI (Imagen 3) โดยเน้นสไตล์ภาพข่าวแบบพรีเมียม (Premium Editorial Editorial photography) และตรงกับเนื้อหาข่าว
+กรุณาเขียนบทความใหม่เป็นภาษาไทยที่มีความดึงดูด น่าอ่าน โดยจัดรูปแบบให้อ่านง่าย:
+- มีการเว้นย่อหน้าอย่างสม่ำเสมอ (ความยาว 3-4 ย่อหน้า)
+- ใช้ Emoji ประกอบในจุดสำคัญหรือหัวข้อย่อเพื่อให้น่าอ่านและสะดุดสายตา
+- มีการสรุปประเด็นหลักและผลกระทบของข่าวให้ชัดเจน
+- หากแหล่งข่าวต้นฉบับเป็นภาษาอังกฤษหรือภาษาอื่นใด ให้แปลและสรุปเป็นภาษาไทยโดยสมบูรณ์
+
+นอกจากนี้ ให้เขียน Prompt ภาษาอังกฤษที่มีความละเอียดสูง สำหรับส่งไปเจเนอเรตรูปภาพประกอบข่าวชิ้นนี้ผ่าน AI (Imagen 3) โดยเน้นสไตล์ภาพข่าวแบบพรีเมียม (Premium editorial photojournalism, detailed realistic photography, cinematic lighting, sharp focus, 8k resolution, suitable for news banner) และหลีกเลี่ยงข้อความสะกดผิดบนภาพ
 
 ผลลัพธ์ที่ต้องการต้องเป็นรูปแบบ JSON ตามโครงสร้างนี้:
 {
-  "title": "หัวข้อข่าวใหม่ที่ดึงดูดในภาษาไทย",
-  "content": "เนื้อหาข่าวทั้งหมดที่เรียบเรียงใหม่เป็นภาษาไทย (ความยาว 3-5 ย่อหน้า)",
+  "title": "หัวข้อข่าวใหม่ที่ดึงดูดกระชับในภาษาไทย (สามารถใส่ Emoji ได้)",
+  "content": "เนื้อหาข่าวที่เรียบเรียงใหม่เป็นภาษาไทยพร้อมย่อหน้าและ Emoji",
   "imagePrompt": "English image generation prompt for Imagen 3"
 }`;
 
@@ -351,5 +356,93 @@ ${articlesFormatted}
       reasons[idx] = 'ได้รับเลือกจากการคัดกรองอัตโนมัติ (Fallbackเนื่องจากการเรียกวิเคราะห์ขัดข้อง)';
     });
     return { selectedIndices, reasons };
+  }
+}
+
+/**
+ * Generates a news article from a short idea or keyword using Gemini with Google Search grounding.
+ */
+export async function generateArticleFromIdea(
+  idea: string,
+  personaInstructions: string
+): Promise<GeneratedArticle> {
+  const key = await getGeminiApiKey();
+  const isMock = !key || key === 'YOUR_GEMINI_API_KEY_HERE' || key.trim() === '';
+
+  if (isMock) {
+    return {
+      title: `สรุปประเด็นร้อน: ${idea} (เขียนโดย AI จำลองจากไอเดีย)`,
+      content: `นี่คือเนื้อหาข่าวที่ระบบจำลองขึ้นตามแนวคิดของคุณเรื่อง "${idea}" \n\nประเด็นนี้เป็นที่วิพากษ์วิจารณ์อย่างกว้างขวางในสัปดาห์นี้ โดยมีมุมมองจากนักวิเคราะห์ที่มองว่ามีความสำคัญอย่างยิ่งต่อการปรับตัวของตลาดและอุตสาหกรรมในภาพรวม การก้าวข้ามข้อจำกัดและเพิ่มนวัตกรรมใหม่ๆ จะเป็นหัวใจสำคัญในขั้นต่อไป`,
+      imagePrompt: "A symbolic concept of creative ideas and technology innovation, glowing lights and data structures, editorial style, photography"
+    };
+  }
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: key });
+    const prompt = `คุณคือบรรณาธิการข่าวและนักเขียนข่าวอัจฉริยะ 
+กรุณาสืบค้นข้อมูลล่าสุดเกี่ยวกับหัวข้อ/ประเด็นต่อไปนี้:
+"${idea}"
+
+จากนั้นนำข้อมูลที่ค้นพบมาวิเคราะห์และเขียนบทความข่าวใหม่เป็นภาษาไทยให้อยู่ในสไตล์/บุคลิกต่อไปนี้อย่างเคร่งครัด:
+"${personaInstructions}"
+
+กรุณาเขียนบทความใหม่เป็นภาษาไทยที่มีความดึงดูด น่าอ่าน โดยจัดรูปแบบให้อ่านง่าย:
+- มีการเว้นย่อหน้าอย่างสม่ำเสมอ (ความยาว 3-4 ย่อหน้า)
+- ใช้ Emoji ประกอบในจุดสำคัญหรือหัวข้อย่อเพื่อให้น่าอ่านและสะดุดสายตา
+- มีการสรุปประเด็นหลักและผลกระทบของข่าวให้ชัดเจน
+
+นอกจากนี้ ให้เขียน Prompt ภาษาอังกฤษที่มีความละเอียดสูง สำหรับส่งไปเจเนอเรตรูปภาพประกอบข่าวชิ้นนี้ผ่าน AI (Imagen 3) โดยเน้นสไตล์ภาพข่าวแบบพรีเมียม (Premium editorial photojournalism, detailed realistic photography, cinematic lighting, sharp focus, 8k resolution, suitable for news banner) และหลีกเลี่ยงข้อความสะกดผิดบนภาพ
+
+ผลลัพธ์ที่ต้องการต้องเป็นรูปแบบ JSON ตามโครงสร้างนี้:
+{
+  "title": "หัวข้อข่าวใหม่ที่ดึงดูดกระชับในภาษาไทย (สามารถใส่ Emoji ได้)",
+  "content": "เนื้อหาข่าวที่เรียบเรียงใหม่เป็นภาษาไทยพร้อมย่อหน้าและ Emoji",
+  "imagePrompt": "English image generation prompt for Imagen 3"
+}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }], // Enable Google Search grounding!
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            title: { type: 'STRING' },
+            content: { type: 'STRING' },
+            imagePrompt: { type: 'STRING' }
+          },
+          required: ['title', 'content', 'imagePrompt']
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) throw new Error('Empty response from Gemini');
+    
+    return JSON.parse(text) as GeneratedArticle;
+  } catch (error: any) {
+    console.error('Error generating article from idea via Gemini:', error);
+    
+    const isQuotaError = error.status === 429 || 
+      (error.message && (
+        error.message.includes('quota') || 
+        error.message.includes('Quota') || 
+        error.message.includes('429') || 
+        error.message.includes('RESOURCE_EXHAUSTED') ||
+        error.message.includes('limit')
+      ));
+      
+    if (isQuotaError) {
+      console.warn('Gemini quota exceeded. Falling back to mock generation for idea.');
+      return {
+        title: `สรุปประเด็นร้อน: ${idea} (เขียนโดย AI สำรองเนื่องจากโควตาเต็ม)`,
+        content: `นี่คือเนื้อความข่าวที่เขียนขึ้นชั่วคราวเนื่องจากคีย์ Gemini ของคุณหมดโควตารายวัน (จำกัดที่ 20 ครั้งต่อวัน)\n\nประเด็นไอเดียของคุณเรื่อง: "${idea}"\n\n(หากต้องการให้ AI ค้นหาอินเทอร์เน็ตจริงและวิเคราะห์เขียนข่าวแบบเต็มรูปแบบ แนะนำให้ตรวจสอบโควตาของคีย์ หรือใช้คีย์ที่เป็นเวอร์ชันจ่ายเงินในหน้ารายละเอียดการตั้งค่า)`,
+        imagePrompt: "A symbolic concept of creative ideas and technology innovation, glowing lights and data structures, editorial style, photography"
+      };
+    }
+    
+    throw error;
   }
 }

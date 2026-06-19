@@ -20,6 +20,7 @@ function DraftsRoomContent() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [publishLoading, setPublishLoading] = useState(false);
+  const [logoText, setLogoText] = useState('CHRONICLE AI');
 
   // Editor states
   const [editTitle, setEditTitle] = useState('');
@@ -31,6 +32,141 @@ function DraftsRoomContent() {
   const [copied, setCopied] = useState(false);
   const [selectedImageStyle, setSelectedImageStyle] = useState('');
   const [previewTab, setPreviewTab] = useState<'facebook' | 'twitter'>('facebook');
+
+  // Quick tools state
+  const [quickTab, setQuickTab] = useState<'url' | 'idea' | 'search'>('url');
+  const [quickUrl, setQuickUrl] = useState('');
+  const [quickIdea, setQuickIdea] = useState('');
+  const [quickSearchQuery, setQuickSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [quickLoading, setQuickLoading] = useState(false);
+  const [importLoading, setImportLoading] = useState('');
+  const [quickStatus, setQuickStatus] = useState('');
+
+  const handleQuickCraftUrl = async () => {
+    if (!quickUrl) return;
+    setQuickLoading(true);
+    setQuickStatus('กำลังดึงข้อมูลข่าวด่วนและเขียนบทร่างภาษาไทย...');
+    try {
+      const res = await fetch('/api/drafts/craft-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: quickUrl,
+          personaId: selectedPersonaId || (personas.find(p => p.isDefault)?.id) || (personas[0]?.id)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setQuickUrl('');
+        setQuickStatus('เรียบเรียงข่าวด่วนสำเร็จ!');
+        // Refresh drafts list and select new draft
+        const dRes = await fetch('/api/drafts');
+        const draftsData = await dRes.json();
+        setDrafts(draftsData);
+        if (data.draft) {
+          selectDraft(data.draft);
+        }
+      } else {
+        setQuickStatus(`ข้อขัดข้อง: ${data.error}`);
+      }
+    } catch (e) {
+      setQuickStatus('เกิดข้อผิดพลาดในการดึงข้อมูล');
+    } finally {
+      setQuickLoading(false);
+      setTimeout(() => setQuickStatus(''), 5000);
+    }
+  };
+
+  const handleQuickCraftIdea = async () => {
+    if (!quickIdea) return;
+    setQuickLoading(true);
+    setQuickStatus('กำลังสืบค้นอินเทอร์เน็ตและร่างข่าวภาษาไทยด้วย AI...');
+    try {
+      const res = await fetch('/api/drafts/generate-from-idea', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idea: quickIdea,
+          personaId: selectedPersonaId || (personas.find(p => p.isDefault)?.id) || (personas[0]?.id)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setQuickIdea('');
+        setQuickStatus('ร่างบทความจากไอเดียสำเร็จ!');
+        // Refresh drafts list and select new draft
+        const dRes = await fetch('/api/drafts');
+        const draftsData = await dRes.json();
+        setDrafts(draftsData);
+        if (data.draft) {
+          selectDraft(data.draft);
+        }
+      } else {
+        setQuickStatus(`ข้อขัดข้อง: ${data.error}`);
+      }
+    } catch (e) {
+      setQuickStatus('เกิดข้อผิดพลาดในการเจเนอเรต');
+    } finally {
+      setQuickLoading(false);
+      setTimeout(() => setQuickStatus(''), 5000);
+    }
+  };
+
+  const handleQuickSearch = async () => {
+    if (!quickSearchQuery) return;
+    setQuickLoading(true);
+    setQuickStatus('กำลังค้นหาข่าวล่าสุดจาก Google News...');
+    try {
+      const res = await fetch(`/api/drafts/search-news?query=${encodeURIComponent(quickSearchQuery)}`);
+      const data = await res.json();
+      if (data.success) {
+        setSearchResults(data.items || []);
+        setQuickStatus(data.items?.length > 0 ? `พบข้อมูลข่าว ${data.items.length} รายการ` : 'ไม่พบข่าวล่าสุด');
+      } else {
+        setQuickStatus(`ค้นหาขัดข้อง: ${data.error}`);
+      }
+    } catch (e) {
+      setQuickStatus('เกิดข้อผิดพลาดในการค้นหา');
+    } finally {
+      setQuickLoading(false);
+      setTimeout(() => setQuickStatus(''), 5000);
+    }
+  };
+
+  const handleImportFromSearch = async (item: any) => {
+    if (!item.link) return;
+    setImportLoading(item.link);
+    setQuickStatus(`กำลังดึงเนื้อหาจาก ${item.source} และแปลงเป็นร่างข่าววิเคราะห์...`);
+    try {
+      const res = await fetch('/api/drafts/craft-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: item.link,
+          personaId: selectedPersonaId || (personas.find(p => p.isDefault)?.id) || (personas[0]?.id)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setQuickStatus('นำเข้าร่างข่าวใหม่สำเร็จ!');
+        // Refresh drafts list and select new draft
+        const dRes = await fetch('/api/drafts');
+        const draftsData = await dRes.json();
+        setDrafts(draftsData);
+        if (data.draft) {
+          selectDraft(data.draft);
+        }
+      } else {
+        setQuickStatus(`เกิดข้อผิดพลาด: ${data.error}`);
+      }
+    } catch (e) {
+      setQuickStatus('เกิดข้อผิดพลาดในการนำเข้า');
+    } finally {
+      setImportLoading('');
+      setTimeout(() => setQuickStatus(''), 5000);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -44,7 +180,24 @@ function DraftsRoomContent() {
 
       const sRes = await fetch('/api/settings/social');
       const socialsData = await sRes.json();
-      const activeSocials = socialsData.filter((s: any) => s.isActive);
+      
+      // Load branding settings
+      const brandingAccount = socialsData.find((s: any) => s.platform === 'BRANDING');
+      if (brandingAccount) {
+        try {
+          const config = JSON.parse(brandingAccount.config);
+          if (config.logoText) {
+            setLogoText(config.logoText);
+          }
+        } catch (e) {
+          console.error('Error parsing branding config:', e);
+        }
+      }
+
+      // Filter out utility platforms from posting list
+      const activeSocials = socialsData.filter(
+        (s: any) => s.isActive && s.platform !== 'GEMINI' && s.platform !== 'BRANDING'
+      );
       setSocials(activeSocials);
       setSelectedPlatforms(activeSocials.map((s: any) => s.id));
 
@@ -254,7 +407,7 @@ function DraftsRoomContent() {
     
     const imageUrlToDownload = selectedDraft.imageUrl.startsWith('data:')
       ? selectedDraft.imageUrl
-      : `/api/og?title=${encodeURIComponent(editTitle || selectedDraft.title)}&imageUrl=${encodeURIComponent(selectedDraft.imageUrl)}`;
+      : `/api/og?title=${encodeURIComponent(editTitle || selectedDraft.title)}&imageUrl=${encodeURIComponent(selectedDraft.imageUrl)}&logoText=${encodeURIComponent(logoText)}`;
 
     link.href = imageUrlToDownload;
     link.download = `chronicle-news-${selectedDraft.id}.png`;
@@ -270,6 +423,138 @@ function DraftsRoomContent() {
         <div className="p-4 border-b border-border">
           <h2 className="font-serif font-bold text-lg">ห้องร่างบทความ ({drafts.length})</h2>
           <p className="text-xs text-stone-500">เลือกบทร่างข่าวเพื่อเขียนแต่งหรือสั่งโพส</p>
+        </div>
+
+        {/* Quick Tools Panel */}
+        <div className="p-4 border-b border-border bg-stone-50/50 dark:bg-stone-900/30 space-y-3 shrink-0">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">เครื่องมือร่างด่วน</span>
+            {/* Tab selector */}
+            <div className="flex bg-stone-100 dark:bg-stone-800 p-0.5 rounded-md text-[9px] font-semibold">
+              <button 
+                onClick={() => setQuickTab('url')}
+                className={`px-1.5 py-0.5 rounded-sm ${quickTab === 'url' ? 'bg-white dark:bg-stone-700 shadow-xs text-indigo-600 dark:text-indigo-400' : 'text-stone-500'}`}
+              >
+                URL
+              </button>
+              <button 
+                onClick={() => setQuickTab('idea')}
+                className={`px-1.5 py-0.5 rounded-sm ${quickTab === 'idea' ? 'bg-white dark:bg-stone-700 shadow-xs text-indigo-600 dark:text-indigo-400' : 'text-stone-500'}`}
+              >
+                ไอเดีย
+              </button>
+              <button 
+                onClick={() => setQuickTab('search')}
+                className={`px-1.5 py-0.5 rounded-sm ${quickTab === 'search' ? 'bg-white dark:bg-stone-700 shadow-xs text-indigo-600 dark:text-indigo-400' : 'text-stone-500'}`}
+              >
+                ค้นหา
+              </button>
+            </div>
+          </div>
+
+          {/* TAB 1: URL Scraper */}
+          {quickTab === 'url' && (
+            <div className="flex items-center space-x-1.5">
+              <input
+                type="url"
+                value={quickUrl}
+                onChange={(e) => setQuickUrl(e.target.value)}
+                placeholder="วางลิงก์ข่าวด่วน..."
+                className="flex-1 bg-background border border-border px-2 py-1 rounded text-[10px] focus:outline-none focus:border-stone-500"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleQuickCraftUrl(); }}
+              />
+              <button
+                onClick={handleQuickCraftUrl}
+                disabled={quickLoading || !quickUrl}
+                className="bg-stone-900 text-stone-100 dark:bg-stone-100 dark:text-stone-900 px-2 py-1 rounded text-[10px] font-bold hover:bg-stone-850 disabled:opacity-40 shrink-0"
+              >
+                {quickLoading ? '...' : 'สแกน'}
+              </button>
+            </div>
+          )}
+
+          {/* TAB 2: Idea to News */}
+          {quickTab === 'idea' && (
+            <div className="space-y-1">
+              <div className="flex items-center space-x-1.5">
+                <input
+                  type="text"
+                  value={quickIdea}
+                  onChange={(e) => setQuickIdea(e.target.value)}
+                  placeholder="เช่น แอปเปิ้ลเปิดตัวชิป M5..."
+                  className="flex-1 bg-background border border-border px-2 py-1 rounded text-[10px] focus:outline-none focus:border-stone-500"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleQuickCraftIdea(); }}
+                />
+                <button
+                  onClick={handleQuickCraftIdea}
+                  disabled={quickLoading || !quickIdea}
+                  className="bg-stone-900 text-stone-100 dark:bg-stone-100 dark:text-stone-900 px-2 py-1 rounded text-[10px] font-bold hover:bg-stone-850 disabled:opacity-40 shrink-0"
+                >
+                  {quickLoading ? '...' : 'เขียน'}
+                </button>
+              </div>
+              <span className="block text-[8px] text-stone-400 font-medium text-right leading-none">
+                *จะเปิดการสืบค้นข้อมูลอินเทอร์เน็ตล่าสุด
+              </span>
+            </div>
+          )}
+
+          {/* TAB 3: Search Curation */}
+          {quickTab === 'search' && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-1.5">
+                <input
+                  type="text"
+                  value={quickSearchQuery}
+                  onChange={(e) => setQuickSearchQuery(e.target.value)}
+                  placeholder="หัวข้อข่าวเทคโนโลยี..."
+                  className="flex-1 bg-background border border-border px-2 py-1 rounded text-[10px] focus:outline-none focus:border-stone-500"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleQuickSearch(); }}
+                />
+                <button
+                  onClick={handleQuickSearch}
+                  disabled={quickLoading || !quickSearchQuery}
+                  className="bg-stone-900 text-stone-100 dark:bg-stone-100 dark:text-stone-900 px-2 py-1 rounded text-[10px] font-bold hover:bg-stone-850 disabled:opacity-40 shrink-0"
+                >
+                  {quickLoading ? '...' : 'ค้น'}
+                </button>
+              </div>
+
+              {/* Search Results List */}
+              {searchResults.length > 0 && (
+                <div className="max-h-40 overflow-y-auto space-y-1.5 border border-border/80 bg-background/50 p-1.5 rounded-md">
+                  {searchResults.map((res: any, idx: number) => (
+                    <div key={idx} className="text-[9px] border-b border-border/40 pb-1.5 last:border-b-0 last:pb-0 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center space-x-1 font-bold text-stone-500 mb-0.5">
+                          <span>{res.source}</span>
+                          <span>·</span>
+                          <span>{res.pubDate ? new Date(res.pubDate).toLocaleDateString('th-TH') : ''}</span>
+                        </div>
+                        <p className="font-semibold text-stone-800 dark:text-stone-200 line-clamp-2 leading-tight">
+                          {res.title}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleImportFromSearch(res)}
+                        disabled={importLoading === res.link}
+                        className="mt-1 self-end text-[8px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-300 font-bold px-1.5 py-0.5 rounded transition-colors disabled:opacity-50"
+                      >
+                        {importLoading === res.link ? 'กำลังนำเข้า...' : '+ นำเข้าร่าง'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Quick status message */}
+          {quickStatus && (
+            <p className="text-[9px] text-indigo-600 dark:text-indigo-400 animate-pulse font-medium text-center leading-tight">
+              {quickStatus}
+            </p>
+          )}
         </div>
 
         {loading ? (
@@ -490,7 +775,7 @@ function DraftsRoomContent() {
                           <img
                             src={selectedDraft.imageUrl.startsWith('data:')
                               ? selectedDraft.imageUrl
-                              : `/api/og?title=${encodeURIComponent(editTitle || selectedDraft.title)}&imageUrl=${encodeURIComponent(selectedDraft.imageUrl)}`
+                              : `/api/og?title=${encodeURIComponent(editTitle || selectedDraft.title)}&imageUrl=${encodeURIComponent(selectedDraft.imageUrl)}&logoText=${encodeURIComponent(logoText)}`
                             }
                             alt="FB Post Preview"
                             className="w-full h-auto object-cover max-h-72"
@@ -537,7 +822,7 @@ function DraftsRoomContent() {
                               <img
                                 src={selectedDraft.imageUrl.startsWith('data:')
                                   ? selectedDraft.imageUrl
-                                  : `/api/og?title=${encodeURIComponent(editTitle || selectedDraft.title)}&imageUrl=${encodeURIComponent(selectedDraft.imageUrl)}`
+                                  : `/api/og?title=${encodeURIComponent(editTitle || selectedDraft.title)}&imageUrl=${encodeURIComponent(selectedDraft.imageUrl)}&logoText=${encodeURIComponent(logoText)}`
                                 }
                                 alt="X Post Preview"
                                 className="w-full h-auto object-cover max-h-60"
@@ -603,7 +888,7 @@ function DraftsRoomContent() {
                       <img 
                         src={selectedDraft.imageUrl.startsWith('data:')
                           ? selectedDraft.imageUrl
-                          : `/api/og?title=${encodeURIComponent(editTitle || selectedDraft.title)}&imageUrl=${encodeURIComponent(selectedDraft.imageUrl)}`
+                          : `/api/og?title=${encodeURIComponent(editTitle || selectedDraft.title)}&imageUrl=${encodeURIComponent(selectedDraft.imageUrl)}&logoText=${encodeURIComponent(logoText)}`
                         } 
                         alt="AI generated" 
                         className="w-full h-full object-cover"

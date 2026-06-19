@@ -166,6 +166,15 @@ const DEFAULT_DB: MockDB = {
       isActive: false,
       createdAt: new Date(),
       updatedAt: new Date()
+    },
+    {
+      id: 'sa-6',
+      platform: 'BRANDING',
+      name: 'ตั้งค่าแบรนด์ & ลายน้ำภาพข่าว (Watermark Branding)',
+      config: '{"logoText":"CHRONICLE AI"}',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
     }
   ],
   logs: []
@@ -452,6 +461,7 @@ export const db = {
   async getSocialAccounts(): Promise<SocialAccount[]> {
     if (isMockMode()) {
       const dbData = readMockDB();
+      let changed = false;
       // Auto-inject GEMINI if not present
       if (!dbData.socialAccounts.some(sa => sa.platform === 'GEMINI')) {
         dbData.socialAccounts.push({
@@ -463,11 +473,66 @@ export const db = {
           createdAt: new Date(),
           updatedAt: new Date()
         });
+        changed = true;
+      }
+      // Auto-inject BRANDING if not present
+      if (!dbData.socialAccounts.some(sa => sa.platform === 'BRANDING')) {
+        dbData.socialAccounts.push({
+          id: 'sa-6',
+          platform: 'BRANDING',
+          name: 'ตั้งค่าแบรนด์ & ลายน้ำภาพข่าว (Watermark Branding)',
+          config: '{"logoText":"CHRONICLE AI"}',
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        changed = true;
+      }
+      if (changed) {
         writeMockDB(dbData);
       }
       return dbData.socialAccounts;
     }
-    return prisma.socialAccount.findMany();
+    
+    const accounts = await prisma.socialAccount.findMany();
+    let hasGemini = accounts.some(a => a.platform === 'GEMINI');
+    let hasBranding = accounts.some(a => a.platform === 'BRANDING');
+    
+    const resultAccounts = [...accounts];
+    
+    if (!hasGemini) {
+      try {
+        const newGemini = await prisma.socialAccount.create({
+          data: {
+            platform: 'GEMINI',
+            name: 'Google Gemini API Key (บริการหลัก)',
+            config: '{"apiKey":""}',
+            isActive: false
+          }
+        });
+        resultAccounts.push(newGemini);
+      } catch (e) {
+        console.error('Failed to create default gemini social account in DB:', e);
+      }
+    }
+    
+    if (!hasBranding) {
+      try {
+        const newBranding = await prisma.socialAccount.create({
+          data: {
+            platform: 'BRANDING',
+            name: 'ตั้งค่าแบรนด์ & ลายน้ำภาพข่าว (Watermark Branding)',
+            config: '{"logoText":"CHRONICLE AI"}',
+            isActive: true
+          }
+        });
+        resultAccounts.push(newBranding);
+      } catch (e) {
+        console.error('Failed to create default branding social account in DB:', e);
+      }
+    }
+    
+    return resultAccounts;
   },
 
   async updateSocialAccount(id: string, data: Partial<SocialAccount>): Promise<SocialAccount> {
