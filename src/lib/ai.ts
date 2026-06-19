@@ -18,7 +18,7 @@ export async function generateArticle(
   personaInstructions: string
 ): Promise<GeneratedArticle> {
   const key = await getGeminiApiKey();
-  const isMock = process.env.APP_MODE === 'mock' || !key || key === 'YOUR_GEMINI_API_KEY_HERE';
+  const isMock = !key || key === 'YOUR_GEMINI_API_KEY_HERE' || key.trim() === '';
 
   if (isMock) {
     // Return realistic mock rewritten news in Thai
@@ -85,7 +85,7 @@ export async function generateArticle(
  */
 export async function generateImage(prompt: string, draftId: string): Promise<string> {
   const key = await getGeminiApiKey();
-  const isMock = process.env.APP_MODE === 'mock' || !key || key === 'YOUR_GEMINI_API_KEY_HERE';
+  const isMock = !key || key === 'YOUR_GEMINI_API_KEY_HERE' || key.trim() === '';
 
   const categories = {
     code: [
@@ -213,7 +213,7 @@ export async function curateNewsArticles(
   articles: CandidateArticle[]
 ): Promise<CuratedResult> {
   const key = await getGeminiApiKey();
-  const isMock = process.env.APP_MODE === 'mock' || !key || key === 'YOUR_GEMINI_API_KEY_HERE';
+  const isMock = !key || key === 'YOUR_GEMINI_API_KEY_HERE' || key.trim() === '';
 
   if (isMock || articles.length === 0) {
     // Return first 3 items with mock reasons
