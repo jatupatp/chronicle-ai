@@ -73,8 +73,27 @@ export async function generateArticle(
     if (!text) throw new Error('Empty response from Gemini');
     
     return JSON.parse(text) as GeneratedArticle;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating article via Gemini:', error);
+    
+    const isQuotaError = error.status === 429 || 
+      (error.message && (
+        error.message.includes('quota') || 
+        error.message.includes('Quota') || 
+        error.message.includes('429') || 
+        error.message.includes('RESOURCE_EXHAUSTED') ||
+        error.message.includes('limit')
+      ));
+      
+    if (isQuotaError) {
+      console.warn('Gemini quota exceeded or rate limited. Falling back to mock translation/rewriting.');
+      return {
+        title: `สรุปประเด็นร้อน: ${originalTitle} (เขียนโดย AI สำรองเนื่องจากโควตาเต็ม)`,
+        content: `นี่คือเนื้อความข่าวที่แปลและเรียบเรียงขึ้นชั่วคราวเนื่องจากคีย์ Gemini Free Tier ของคุณหมดโควตารายวัน (จำกัดที่ 20 ครั้งต่อวัน)\n\nข่าวสารต้นฉบับเรื่อง: "${originalTitle}"\n\nเนื้อความบางส่วน: ${originalContent.substring(0, 400)}...\n\n(หากต้องการให้ AI แปลและเขียนข่าววิเคราะห์แบบเต็มรูปแบบ แนะนำให้ตรวจสอบโควตาของคีย์ หรือใช้คีย์ที่เป็นเวอร์ชันจ่ายเงินในหน้ารายละเอียดการตั้งค่า)`,
+        imagePrompt: "A sleek modern office space with computer monitors displaying data visualization, technology background, editorial photography"
+      };
+    }
+    
     throw error;
   }
 }
