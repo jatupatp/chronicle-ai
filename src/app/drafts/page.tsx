@@ -251,8 +251,13 @@ function DraftsRoomContent() {
   const handleDownloadImage = () => {
     if (!selectedDraft?.imageUrl) return;
     const link = document.createElement('a');
-    link.href = selectedDraft.imageUrl;
-    link.download = `chronicle-news-${selectedDraft.id}.jpg`;
+    
+    const imageUrlToDownload = selectedDraft.imageUrl.startsWith('data:')
+      ? selectedDraft.imageUrl
+      : `/api/og?title=${encodeURIComponent(editTitle || selectedDraft.title)}&imageUrl=${encodeURIComponent(selectedDraft.imageUrl)}`;
+
+    link.href = imageUrlToDownload;
+    link.download = `chronicle-news-${selectedDraft.id}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -483,7 +488,10 @@ function DraftsRoomContent() {
                       {selectedDraft.imageUrl && (
                         <div className="border-y border-stone-200 overflow-hidden bg-stone-50">
                           <img
-                            src={selectedDraft.imageUrl}
+                            src={selectedDraft.imageUrl.startsWith('data:')
+                              ? selectedDraft.imageUrl
+                              : `/api/og?title=${encodeURIComponent(editTitle || selectedDraft.title)}&imageUrl=${encodeURIComponent(selectedDraft.imageUrl)}`
+                            }
                             alt="FB Post Preview"
                             className="w-full h-auto object-cover max-h-72"
                           />
@@ -527,7 +535,10 @@ function DraftsRoomContent() {
                           {selectedDraft.imageUrl && (
                             <div className="mt-3 border border-stone-850 rounded-xl overflow-hidden bg-stone-900 max-h-60 flex items-center justify-center">
                               <img
-                                src={selectedDraft.imageUrl}
+                                src={selectedDraft.imageUrl.startsWith('data:')
+                                  ? selectedDraft.imageUrl
+                                  : `/api/og?title=${encodeURIComponent(editTitle || selectedDraft.title)}&imageUrl=${encodeURIComponent(selectedDraft.imageUrl)}`
+                                }
                                 alt="X Post Preview"
                                 className="w-full h-auto object-cover max-h-60"
                               />
@@ -590,7 +601,10 @@ function DraftsRoomContent() {
                   {selectedDraft.imageUrl ? (
                     <div className="rounded-lg overflow-hidden border border-border aspect-video bg-stone-50 relative group">
                       <img 
-                        src={selectedDraft.imageUrl} 
+                        src={selectedDraft.imageUrl.startsWith('data:')
+                          ? selectedDraft.imageUrl
+                          : `/api/og?title=${encodeURIComponent(editTitle || selectedDraft.title)}&imageUrl=${encodeURIComponent(selectedDraft.imageUrl)}`
+                        } 
                         alt="AI generated" 
                         className="w-full h-full object-cover"
                       />
