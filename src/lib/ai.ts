@@ -118,6 +118,18 @@ export async function generateImage(prompt: string, draftId: string): Promise<st
       'https://images.unsplash.com/photo-1504384308090-c894fdcc538d',
       'https://images.unsplash.com/photo-1522071820081-009f0129c71c'
     ],
+    finance: [
+      'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f',
+      'https://images.unsplash.com/photo-1518546305927-5a555bb7020d',
+      'https://images.unsplash.com/photo-1621761191319-c6fb62004040',
+      'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3'
+    ],
+    mobile: [
+      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9',
+      'https://images.unsplash.com/photo-1565849906660-bf4b4e295f23',
+      'https://images.unsplash.com/photo-1546054454-aa26e2b734c7',
+      'https://images.unsplash.com/photo-1580910051074-3eb694886505'
+    ],
     generic: [
       'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe',
       'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b',
@@ -140,6 +152,10 @@ export async function generateImage(prompt: string, draftId: string): Promise<st
       pool = categories.chip;
     } else if (lowerPrompt.includes('business') || lowerPrompt.includes('meeting') || lowerPrompt.includes('office') || lowerPrompt.includes('corp')) {
       pool = categories.business;
+    } else if (lowerPrompt.includes('finance') || lowerPrompt.includes('money') || lowerPrompt.includes('crypto') || lowerPrompt.includes('bitcoin') || lowerPrompt.includes('stock') || lowerPrompt.includes('investment') || lowerPrompt.includes('การเงิน') || lowerPrompt.includes('หุ้น')) {
+      pool = categories.finance;
+    } else if (lowerPrompt.includes('phone') || lowerPrompt.includes('mobile') || lowerPrompt.includes('gadget') || lowerPrompt.includes('tablet') || lowerPrompt.includes('speaker') || lowerPrompt.includes('nest') || lowerPrompt.includes('watch') || lowerPrompt.includes('มือถือ') || lowerPrompt.includes('สมาร์ทโฟน')) {
+      pool = categories.mobile;
     }
 
     const randomUrl = pool[Math.floor(Math.random() * pool.length)];
